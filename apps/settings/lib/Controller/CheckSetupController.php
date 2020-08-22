@@ -53,6 +53,9 @@ use OC\DB\SchemaWrapper;
 use OC\IntegrityCheck\Checker;
 use OC\Lock\NoopLockingProvider;
 use OC\MemoryInfo;
+use OCA\Settings\SetupChecks\LegacySSEKeyFormat;
+use OCA\Settings\SetupChecks\PhpDefaultCharset;
+use OCA\Settings\SetupChecks\PhpOutputBuffering;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
@@ -95,6 +98,8 @@ class CheckSetupController extends Controller {
 	private $memoryInfo;
 	/** @var ISecureRandom */
 	private $secureRandom;
+	/** @var IniGetWrapper */
+	private $iniGetWrapper;
 
 	public function __construct($AppName,
 								IRequest $request,
@@ -109,7 +114,8 @@ class CheckSetupController extends Controller {
 								ILockingProvider $lockingProvider,
 								IDateTimeFormatter $dateTimeFormatter,
 								MemoryInfo $memoryInfo,
-								ISecureRandom $secureRandom) {
+								ISecureRandom $secureRandom,
+								IniGetWrapper $iniGetWrapper) {
 		parent::__construct($AppName, $request);
 		$this->config = $config;
 		$this->clientService = $clientService;
@@ -123,6 +129,7 @@ class CheckSetupController extends Controller {
 		$this->dateTimeFormatter = $dateTimeFormatter;
 		$this->memoryInfo = $memoryInfo;
 		$this->secureRandom = $secureRandom;
+		$this->iniGetWrapper = $iniGetWrapper;
 	}
 
 	/**
@@ -404,25 +411,23 @@ Raw output
 	 * @return bool
 	 */
 	protected function isOpcacheProperlySetup() {
-		$iniWrapper = new IniGetWrapper();
-
-		if (!$iniWrapper->getBool('opcache.enable')) {
+		if (!$this->iniGetWrapper->getBool('opcache.enable')) {
 			return false;
 		}
 
-		if (!$iniWrapper->getBool('opcache.save_comments')) {
+		if (!$this->iniGetWrapper->getBool('opcache.save_comments')) {
 			return false;
 		}
 
-		if ($iniWrapper->getNumeric('opcache.max_accelerated_files') < 10000) {
+		if ($this->iniGetWrapper->getNumeric('opcache.max_accelerated_files') < 10000) {
 			return false;
 		}
 
-		if ($iniWrapper->getNumeric('opcache.memory_consumption') < 128) {
+		if ($this->iniGetWrapper->getNumeric('opcache.memory_consumption') < 128) {
 			return false;
 		}
 
-		if ($iniWrapper->getNumeric('opcache.interned_strings_buffer') < 8) {
+		if ($this->iniGetWrapper->getNumeric('opcache.interned_strings_buffer') < 8) {
 			return false;
 		}
 
@@ -683,6 +688,9 @@ Raw output
 	 * @return DataResponse
 	 */
 	public function check() {
+		$phpDefaultCharset = new PhpDefaultCharset();
+		$phpOutputBuffering = new PhpOutputBuffering();
+		$legacySSEKeyFormat = new LegacySSEKeyFormat($this->l10n, $this->config, $this->urlGenerator);
 		return new DataResponse(
 			[
 				'isGetenvServerWorking' => !empty(getenv('PATH')),
@@ -723,6 +731,9 @@ Raw output
 				'isMysqlUsedWithoutUTF8MB4' => $this->isMysqlUsedWithoutUTF8MB4(),
 				'isEnoughTempSpaceAvailableIfS3PrimaryStorageIsUsed' => $this->isEnoughTempSpaceAvailableIfS3PrimaryStorageIsUsed(),
 				'reverseProxyGeneratedURL' => $this->urlGenerator->getAbsoluteURL('index.php'),
+				PhpDefaultCharset::class => ['pass' => $phpDefaultCharset->run(), 'description' => $phpDefaultCharset->description(), 'severity' => $phpDefaultCharset->severity()],
+				PhpOutputBuffering::class => ['pass' => $phpOutputBuffering->run(), 'description' => $phpOutputBuffering->description(), 'severity' => $phpOutputBuffering->severity()],
+				LegacySSEKeyFormat::class => ['pass' => $legacySSEKeyFormat->run(), 'description' => $legacySSEKeyFormat->description(), 'severity' => $legacySSEKeyFormat->severity(), 'linkToDocumentation' => $legacySSEKeyFormat->linkToDocumentation()],
 			]
 		);
 	}

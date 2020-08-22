@@ -23,21 +23,7 @@
 
 namespace OCA\Files\Activity\Settings;
 
-use OCP\Activity\ISetting;
-use OCP\IL10N;
-
-class FileChanged implements ISetting {
-
-	/** @var IL10N */
-	protected $l;
-
-	/**
-	 * @param IL10N $l
-	 */
-	public function __construct(IL10N $l) {
-		$this->l = $l;
-	}
-
+class FileChanged extends FileActivitySettings {
 	/**
 	 * @return string Lowercase a-z and underscore only identifier
 	 * @since 11.0.0
@@ -51,7 +37,7 @@ class FileChanged implements ISetting {
 	 * @since 11.0.0
 	 */
 	public function getName() {
-		return $this->l->t('A file or folder has been <strong>changed</strong> or <strong>renamed</strong>');
+		return $this->l->t('A file or folder has been <strong>changed</strong>');
 	}
 
 	/**
@@ -64,35 +50,19 @@ class FileChanged implements ISetting {
 		return 1;
 	}
 
-	/**
-	 * @return bool True when the option can be changed for the stream
-	 * @since 11.0.0
-	 */
-	public function canChangeStream() {
-		return true;
-	}
-
-	/**
-	 * @return bool True when the option can be changed for the stream
-	 * @since 11.0.0
-	 */
-	public function isDefaultEnabledStream() {
-		return true;
-	}
-
-	/**
-	 * @return bool True when the option can be changed for the mail
-	 * @since 11.0.0
-	 */
 	public function canChangeMail() {
-		return true;
+		return false;
 	}
 
-	/**
-	 * @return bool True when the option can be changed for the stream
-	 * @since 11.0.0
-	 */
 	public function isDefaultEnabledMail() {
+		return false;
+	}
+
+	public function canChangeNotification() {
+		return false;
+	}
+
+	public function isDefaultEnabledNotification() {
 		return false;
 	}
 }

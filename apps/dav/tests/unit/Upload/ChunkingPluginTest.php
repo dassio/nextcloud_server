@@ -37,12 +37,12 @@ class ChunkingPluginTest extends TestCase {
 
 
 	/**
-	 * @var \Sabre\DAV\Server | \PHPUnit_Framework_MockObject_MockObject
+	 * @var \Sabre\DAV\Server | \PHPUnit\Framework\MockObject\MockObject
 	 */
 	private $server;
 
 	/**
-	 * @var \Sabre\DAV\Tree | \PHPUnit_Framework_MockObject_MockObject
+	 * @var \Sabre\DAV\Tree | \PHPUnit\Framework\MockObject\MockObject
 	 */
 	private $tree;
 
@@ -50,9 +50,9 @@ class ChunkingPluginTest extends TestCase {
 	 * @var ChunkingPlugin
 	 */
 	private $plugin;
-	/** @var RequestInterface | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var RequestInterface | \PHPUnit\Framework\MockObject\MockObject */
 	private $request;
-	/** @var ResponseInterface | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var ResponseInterface | \PHPUnit\Framework\MockObject\MockObject */
 	private $response;
 
 	protected function setUp(): void {
@@ -128,14 +128,18 @@ class ChunkingPluginTest extends TestCase {
 			->method('nodeExists')
 			->with('target')
 			->willReturn(false);
-		$this->response->expects($this->never())
-			->method('setStatus');
+		$this->response->expects($this->once())
+			->method('setHeader')
+			->with('Content-Length', '0');
+		$this->response->expects($this->once())
+			->method('setStatus')
+			->with(201);
 		$this->request->expects($this->once())
 			->method('getHeader')
 			->with('OC-Total-Length')
 			->willReturn(4);
 
-		$this->assertNull($this->plugin->beforeMove('source', 'target'));
+		$this->assertFalse($this->plugin->beforeMove('source', 'target'));
 	}
 
 	public function testBeforeMoveFutureFileMoveIt() {

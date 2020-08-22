@@ -25,6 +25,7 @@ namespace OC\Activity;
 
 use OCP\Activity\ActivitySettings;
 use OCP\Activity\ISetting;
+use OCP\IL10N;
 
 /**
  * Adapt the old interface based settings into the new abstract
@@ -32,9 +33,11 @@ use OCP\Activity\ISetting;
  */
 class ActivitySettingsAdapter extends ActivitySettings {
 	private $oldSettings;
+	private $l10n;
 
-	public function __construct(ISetting $oldSettings) {
+	public function __construct(ISetting $oldSettings, IL10N $l10n) {
 		$this->oldSettings = $oldSettings;
+		$this->l10n = $l10n;
 	}
 
 	public function getIdentifier() {
@@ -43,6 +46,14 @@ class ActivitySettingsAdapter extends ActivitySettings {
 
 	public function getName() {
 		return $this->oldSettings->getName();
+	}
+
+	public function getGroupIdentifier() {
+		return 'other';
+	}
+
+	public function getGroupName() {
+		return $this->l10n->t('Other activities');
 	}
 
 	public function getPriority() {

@@ -23,27 +23,13 @@
 
 namespace OCA\Files\Activity\Settings;
 
-use OCP\Activity\ISetting;
-use OCP\IL10N;
-
-class FileCreated implements ISetting {
-
-	/** @var IL10N */
-	protected $l;
-
-	/**
-	 * @param IL10N $l
-	 */
-	public function __construct(IL10N $l) {
-		$this->l = $l;
-	}
-
+class FileFavoriteChanged extends FileActivitySettings {
 	/**
 	 * @return string Lowercase a-z and underscore only identifier
 	 * @since 11.0.0
 	 */
 	public function getIdentifier() {
-		return 'file_created';
+		return 'file_favorite_changed';
 	}
 
 	/**
@@ -51,7 +37,7 @@ class FileCreated implements ISetting {
 	 * @since 11.0.0
 	 */
 	public function getName() {
-		return $this->l->t('A new file or folder has been <strong>created</strong>');
+		return $this->l->t('A favorite file or folder has been <strong>changed</strong>');
 	}
 
 	/**
@@ -61,7 +47,7 @@ class FileCreated implements ISetting {
 	 * @since 11.0.0
 	 */
 	public function getPriority() {
-		return 0;
+		return 1;
 	}
 
 	/**
@@ -94,5 +80,9 @@ class FileCreated implements ISetting {
 	 */
 	public function isDefaultEnabledMail() {
 		return false;
+	}
+
+	public function isDefaultEnabledNotification() {
+		return true;
 	}
 }

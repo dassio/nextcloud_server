@@ -48,6 +48,7 @@ use OCA\Provisioning_API\FederatedShareProviderFactory;
 use OCA\Settings\Mailer\NewUserMailHelper;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IConfig;
 use OCP\IGroup;
 use OCP\IL10N;
@@ -58,42 +59,44 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use OCP\Mail\IEMailTemplate;
+use OCP\Security\Events\GenerateSecurePasswordEvent;
 use OCP\Security\ISecureRandom;
 use OCP\UserInterface;
 use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit_Framework_MockObject_MockObject;
 use Test\TestCase;
 
 class UsersControllerTest extends TestCase {
 
-	/** @var IUserManager|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IUserManager|MockObject */
 	protected $userManager;
-	/** @var IConfig|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IConfig|MockObject */
 	protected $config;
-	/** @var IAppManager|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IAppManager|MockObject */
 	protected $appManager;
-	/** @var Manager|PHPUnit_Framework_MockObject_MockObject */
+	/** @var Manager|MockObject */
 	protected $groupManager;
-	/** @var IUserSession|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IUserSession|MockObject */
 	protected $userSession;
-	/** @var ILogger|PHPUnit_Framework_MockObject_MockObject */
+	/** @var ILogger|MockObject */
 	protected $logger;
-	/** @var UsersController|PHPUnit_Framework_MockObject_MockObject */
+	/** @var UsersController|MockObject */
 	protected $api;
-	/** @var AccountManager|PHPUnit_Framework_MockObject_MockObject */
+	/** @var AccountManager|MockObject */
 	protected $accountManager;
-	/** @var IRequest|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IRequest|MockObject */
 	protected $request;
-	/** @var IFactory|PHPUnit_Framework_MockObject_MockObject */
+	/** @var IFactory|MockObject */
 	private $l10nFactory;
-	/** @var NewUserMailHelper|PHPUnit_Framework_MockObject_MockObject */
+	/** @var NewUserMailHelper|MockObject */
 	private $newUserMailHelper;
-	/** @var FederatedShareProviderFactory|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var FederatedShareProviderFactory|MockObject */
 	private $federatedShareProviderFactory;
-	/** @var ISecureRandom|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var ISecureRandom|MockObject */
 	private $secureRandom;
 	/** @var RemoteWipe|MockObject */
 	private $remoteWipe;
+	/** @var IEventDispatcher */
+	private $eventDispatcher;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -111,6 +114,7 @@ class UsersControllerTest extends TestCase {
 		$this->federatedShareProviderFactory = $this->createMock(FederatedShareProviderFactory::class);
 		$this->secureRandom = $this->createMock(ISecureRandom::class);
 		$this->remoteWipe = $this->createMock(RemoteWipe::class);
+		$this->eventDispatcher = $this->createMock(IEventDispatcher::class);
 
 		$this->api = $this->getMockBuilder(UsersController::class)
 			->setConstructorArgs([
@@ -128,6 +132,7 @@ class UsersControllerTest extends TestCase {
 				$this->federatedShareProviderFactory,
 				$this->secureRandom,
 				$this->remoteWipe,
+				$this->eventDispatcher,
 			])
 			->setMethods(['fillStorageInfo'])
 			->getMock();
@@ -389,7 +394,8 @@ class UsersControllerTest extends TestCase {
 				$this->newUserMailHelper,
 				$this->federatedShareProviderFactory,
 				$this->secureRandom,
-				$this->remoteWipe
+				$this->remoteWipe,
+				$this->eventDispatcher,
 			])
 			->setMethods(['editUser'])
 			->getMock();
@@ -483,6 +489,46 @@ class UsersControllerTest extends TestCase {
 		$this->assertTrue(key_exists(
 			'id',
 			$this->api->addUser('', 'PasswordOfTheNewUser')->getData()
+		));
+	}
+
+	public function testAddUserSuccessfulGeneratePassword() {
+		$this->userManager
+			->expects($this->once())
+			->method('userExists')
+			->with('NewUser')
+			->willReturn(false);
+		$this->userManager
+			->expects($this->once())
+			->method('createUser');
+		$this->logger
+			->expects($this->once())
+			->method('info')
+			->with('Successful addUser call with userid: NewUser', ['app' => 'ocs_api']);
+		$loggedInUser = $this->getMockBuilder(IUser::class)
+			->disableOriginalConstructor()
+			->getMock();
+		$loggedInUser
+			->expects($this->once())
+			->method('getUID')
+			->willReturn('adminUser');
+		$this->userSession
+			->expects($this->once())
+			->method('getUser')
+			->willReturn($loggedInUser);
+		$this->groupManager
+			->expects($this->once())
+			->method('isAdmin')
+			->with('adminUser')
+			->willReturn(true);
+		$this->eventDispatcher
+			->expects($this->once())
+			->method('dispatchTyped')
+			->with(new GenerateSecurePasswordEvent());
+
+		$this->assertTrue(key_exists(
+			'id',
+			$this->api->addUser('NewUser', '', '', 'foo@bar')->getData()
 		));
 	}
 
@@ -3109,7 +3155,7 @@ class UsersControllerTest extends TestCase {
 		$this->userSession->expects($this->once())->method('getUser')
 			->willReturn($user);
 
-		/** @var UsersController | PHPUnit_Framework_MockObject_MockObject $api */
+		/** @var UsersController | MockObject $api */
 		$api = $this->getMockBuilder('OCA\Provisioning_API\Controller\UsersController')
 			->setConstructorArgs([
 				'provisioning_api',
@@ -3126,6 +3172,7 @@ class UsersControllerTest extends TestCase {
 				$this->federatedShareProviderFactory,
 				$this->secureRandom,
 				$this->remoteWipe,
+				$this->eventDispatcher,
 			])
 			->setMethods(['getUserData'])
 			->getMock();
@@ -3173,7 +3220,7 @@ class UsersControllerTest extends TestCase {
 
 
 	public function testGetUser() {
-		/** @var UsersController | PHPUnit_Framework_MockObject_MockObject $api */
+		/** @var UsersController | MockObject $api */
 		$api = $this->getMockBuilder('OCA\Provisioning_API\Controller\UsersController')
 			->setConstructorArgs([
 				'provisioning_api',
@@ -3190,6 +3237,7 @@ class UsersControllerTest extends TestCase {
 				$this->federatedShareProviderFactory,
 				$this->secureRandom,
 				$this->remoteWipe,
+				$this->eventDispatcher,
 			])
 			->setMethods(['getUserData'])
 			->getMock();

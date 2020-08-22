@@ -865,8 +865,8 @@ $CONFIG = [
 'log_query' => false,
 
 /**
- * Enables log rotation and limits the total size of logfiles. The default is 0,
- * or no rotation. Specify a size in bytes, for example 104857600 (100 megabytes
+ * Enables log rotation and limits the total size of logfiles. Set it to 0 for
+ * no rotation. Specify a size in bytes, for example 104857600 (100 megabytes
  * = 100 * 1024 * 1024 bytes). A new logfile is created with a new name when the
  * old logfile reaches your limit. If a rotated log file is already present, it
  * will be overwritten.
@@ -1409,6 +1409,11 @@ $CONFIG = [
  * Set to true to enforce that internal shares need to be accepted
  */
 'sharing.force_share_accept' => false,
+
+/**
+ * Set to false to stop sending a mail when users receive a share
+ */
+'sharing.enable_share_mail' => true,
 
 
 /**

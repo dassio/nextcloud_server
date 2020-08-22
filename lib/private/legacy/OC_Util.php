@@ -62,6 +62,7 @@
  *
  */
 
+use bantu\IniGetWrapper\IniGetWrapper;
 use OC\AppFramework\Http\Request;
 use OC\Files\Storage\LocalRootStorage;
 use OCP\IConfig;
@@ -299,7 +300,6 @@ class OC_Util {
 
 		/** @var \OCP\Files\Config\IMountProviderCollection $mountProviderCollection */
 		$mountProviderCollection = \OC::$server->query(\OCP\Files\Config\IMountProviderCollection::class);
-		/** @var \OCP\Files\Mount\IMountPoint[] $rootMountProviders */
 		$rootMountProviders = $mountProviderCollection->getRootMounts();
 
 		/** @var \OC\Files\Mount\Manager $mountManager */
@@ -555,16 +555,16 @@ class OC_Util {
 
 		$timestamp = filemtime(OC::$SERVERROOT . '/version.php');
 		require OC::$SERVERROOT . '/version.php';
-		/** @var $timestamp int */
+		/** @var int $timestamp */
 		self::$versionCache['OC_Version_Timestamp'] = $timestamp;
-		/** @var $OC_Version string */
+		/** @var string $OC_Version */
 		self::$versionCache['OC_Version'] = $OC_Version;
-		/** @var $OC_VersionString string */
+		/** @var string $OC_VersionString */
 		self::$versionCache['OC_VersionString'] = $OC_VersionString;
-		/** @var $OC_Build string */
+		/** @var string $OC_Build */
 		self::$versionCache['OC_Build'] = $OC_Build;
 
-		/** @var $OC_Channel string */
+		/** @var string $OC_Channel */
 		self::$versionCache['OC_Channel'] = $OC_Channel;
 	}
 
@@ -739,7 +739,7 @@ class OC_Util {
 		$webServerRestart = false;
 		$setup = new \OC\Setup(
 			$config,
-			\OC::$server->getIniWrapper(),
+			\OC::$server->get(IniGetWrapper::class),
 			\OC::$server->getL10N('lib'),
 			\OC::$server->query(\OCP\Defaults::class),
 			\OC::$server->getLogger(),
@@ -864,7 +864,7 @@ class OC_Util {
 		$missingDependencies = [];
 		$invalidIniSettings = [];
 
-		$iniWrapper = \OC::$server->getIniWrapper();
+		$iniWrapper = \OC::$server->get(IniGetWrapper::class);
 		foreach ($dependencies['classes'] as $class => $module) {
 			if (!class_exists($class)) {
 				$missingDependencies[] = $module;

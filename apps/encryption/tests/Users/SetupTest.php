@@ -35,11 +35,11 @@ use Test\TestCase;
 
 class SetupTest extends TestCase {
 	/**
-	 * @var \OCA\Encryption\KeyManager|\PHPUnit_Framework_MockObject_MockObject
+	 * @var \OCA\Encryption\KeyManager|\PHPUnit\Framework\MockObject\MockObject
 	 */
 	private $keyManagerMock;
 	/**
-	 * @var \OCA\Encryption\Crypto\Crypt|\PHPUnit_Framework_MockObject_MockObject
+	 * @var \OCA\Encryption\Crypto\Crypt|\PHPUnit\Framework\MockObject\MockObject
 	 */
 	private $cryptMock;
 	/**
@@ -90,9 +90,9 @@ class SetupTest extends TestCase {
 		if ($hasKeys) {
 			$this->keyManagerMock->expects($this->never())->method('storeKeyPair');
 		} else {
-			$this->cryptMock->expects($this->once())->method('createKeyPair')->willReturn('keyPair');
+			$this->cryptMock->expects($this->once())->method('createKeyPair')->willReturn(['publicKey' => 'publicKey', 'privateKey' => 'privateKey']);
 			$this->keyManagerMock->expects($this->once())->method('storeKeyPair')
-				->with('uid', 'password', 'keyPair')->willReturn(true);
+				->with('uid', 'password', ['publicKey' => 'publicKey', 'privateKey' => 'privateKey'])->willReturn(true);
 		}
 
 		$this->assertSame($expected,

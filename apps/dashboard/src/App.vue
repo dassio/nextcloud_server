@@ -1,12 +1,13 @@
 <template>
-	<div id="app-dashboard">
-		<h2>{{ greeting.icon }} {{ greeting.text }}</h2>
-		<div class="statuses">
-			<div v-for="status in registeredStatus"
+	<div id="app-dashboard" :style="backgroundStyle">
+		<h2>{{ greeting.text }}</h2>
+		<ul class="statuses">
+			<div v-for="status in sortedRegisteredStatus"
 				:id="'status-' + status"
-				:key="status"
-				:ref="'status-' + status" />
-		</div>
+				:key="status">
+				<div :ref="'status-' + status" />
+			</div>
+		</ul>
 
 		<Draggable v-model="layout"
 			class="panels"
@@ -14,9 +15,9 @@
 			@end="saveLayout">
 			<div v-for="panelId in layout" :key="panels[panelId].id" class="panel">
 				<div class="panel--header">
-					<h3 :class="panels[panelId].iconClass">
+					<h2 :class="panels[panelId].iconClass">
 						{{ panels[panelId].title }}
-					</h3>
+					</h2>
 				</div>
 				<div class="panel--content">
 					<div :ref="panels[panelId].id" :data-id="panels[panelId].id" />
@@ -24,10 +25,15 @@
 			</div>
 		</Draggable>
 
-		<a v-tooltip="tooltip"
-			class="edit-panels icon-add"
-			:class="{ firstrun: firstRun }"
-			@click="showModal">{{ t('dashboard', 'Edit widgets') }}</a>
+		<div class="footer"
+			:class="{ firstrun: firstRun }">
+			<a v-tooltip="tooltip"
+				class="edit-panels icon-rename"
+				tabindex="0"
+				@click="showModal"
+				@keyup.enter="showModal"
+				@keyup.space="showModal">{{ t('dashboard', 'Customize') }}</a>
+		</div>
 
 		<Modal v-if="modal" @close="closeModal">
 			<div class="modal__content">
@@ -49,7 +55,18 @@
 					</li>
 				</Draggable>
 
-				<a :href="appStoreUrl" class="button">{{ t('dashboard', 'Get more widgets from the app store') }}</a>
+				<a v-if="isAdmin" :href="appStoreUrl" class="button">{{ t('dashboard', 'Get more widgets from the app store') }}</a>
+
+				<h3>{{ t('dashboard', 'Change background image') }}</h3>
+				<BackgroundSettings :background="background" @update:background="updateBackground" />
+
+				<h3>{{ t('dashboard', 'Weather service') }}</h3>
+				<p>
+					{{ t('dashboard', 'For your privacy, the weather data is requested by your Nextcloud server on your behalf so the weather service receives no personal information.') }}
+				</p>
+				<p class="credits--end">
+					<a href="https://api.met.no/doc/TermsOfService" target="_blank" rel="noopener">{{ t('dashboard', 'Weather data from Met.no') }}</a>, <a href="https://wiki.osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">{{ t('dashboard', 'geocoding with Nominatim') }}</a>, <a href="https://www.opentopodata.org/#public-api" target="_blank" rel="noopener">{{ t('dashboard', 'elevation data from OpenTopoData') }}</a>.
+				</p>
 			</div>
 		</Modal>
 	</div>
@@ -63,18 +80,30 @@ import { Modal } from '@nextcloud/vue'
 import Draggable from 'vuedraggable'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import isMobile from './mixins/isMobile'
+import BackgroundSettings from './components/BackgroundSettings'
+import getBackgroundUrl from './helpers/getBackgroundUrl'
+import prefixWithBaseUrl from './helpers/prefixWithBaseUrl'
 
 const panels = loadState('dashboard', 'panels')
 const firstRun = loadState('dashboard', 'firstRun')
+const background = loadState('dashboard', 'background')
+const version = loadState('dashboard', 'version')
+const shippedBackgroundList = loadState('dashboard', 'shippedBackgrounds')
 
 export default {
 	name: 'App',
 	components: {
 		Modal,
 		Draggable,
+		BackgroundSettings,
 	},
+	mixins: [
+		isMobile,
+	],
 	data() {
 		return {
+			isAdmin: getCurrentUser().isAdmin,
 			timer: new Date(),
 			registeredStatus: [],
 			callbacks: {},
@@ -87,9 +116,23 @@ export default {
 			modal: false,
 			appStoreUrl: generateUrl('/settings/apps/dashboard'),
 			statuses: {},
+			background,
+			version,
+			defaultBackground: window.OCA.Accessibility.theme === 'dark' ? prefixWithBaseUrl('flickr-148302424@N05-36591009215.jpg?v=1') : prefixWithBaseUrl('flickr-paszczak000-8715851521.jpg?v=1'),
 		}
 	},
 	computed: {
+		backgroundImage() {
+			return getBackgroundUrl(this.background, this.version)
+		},
+		backgroundStyle() {
+			if (this.background.match(/#[0-9A-Fa-f]{6}/g)) {
+				return null
+			}
+			return {
+				backgroundImage: `url(${this.backgroundImage})`,
+			}
+		},
 		tooltip() {
 			if (!this.firstRun) {
 				return null
@@ -106,18 +149,15 @@ export default {
 			const shouldShowName = this.displayName && this.uid !== this.displayName
 
 			if (time > 18) {
-				return { icon: '🌙', text: shouldShowName ? t('dashboard', 'Good evening, {name}', { name: this.displayName }) : t('dashboard', 'Good evening') }
+				return { text: shouldShowName ? t('dashboard', 'Good evening, {name}', { name: this.displayName }) : t('dashboard', 'Good evening') }
 			}
 			if (time > 12) {
-				return { icon: '☀', text: shouldShowName ? t('dashboard', 'Good afternoon, {name}', { name: this.displayName }) : t('dashboard', 'Good afternoon') }
-			}
-			if (time === 12) {
-				return { icon: '🍽', text: shouldShowName ? t('dashboard', 'Time for lunch, {name}', { name: this.displayName }) : t('dashboard', 'Time for lunch') }
+				return { text: shouldShowName ? t('dashboard', 'Good afternoon, {name}', { name: this.displayName }) : t('dashboard', 'Good afternoon') }
 			}
 			if (time > 5) {
-				return { icon: '🌄', text: shouldShowName ? t('dashboard', 'Good morning, {name}', { name: this.displayName }) : t('dashboard', 'Good morning') }
+				return { text: shouldShowName ? t('dashboard', 'Good morning, {name}', { name: this.displayName }) : t('dashboard', 'Good morning') }
 			}
-			return { icon: '🦉', text: shouldShowName ? t('dashboard', 'Have a night owl, {name}', { name: this.displayName }) : t('dashboard', 'Have a night owl') }
+			return { text: shouldShowName ? t('dashboard', 'Good night, {name}', { name: this.displayName }) : t('dashboard', 'Good night') }
 		},
 		isActive() {
 			return (panel) => this.layout.indexOf(panel.id) > -1
@@ -131,6 +171,9 @@ export default {
 				}
 				return indexA - indexB || a.id - b.id
 			})
+		},
+		sortedRegisteredStatus() {
+			return this.registeredStatus.slice().sort((a, b) => a > b)
 		},
 	},
 	watch: {
@@ -151,8 +194,17 @@ export default {
 				}
 			}
 		},
+		backgroundImage: {
+			immediate: true,
+			handler() {
+				const header = document.getElementById('header')
+				header.style.backgroundImage = `url(${this.backgroundImage})`
+			},
+		},
 	},
 	mounted() {
+		this.updateGlobalStyles()
+
 		setInterval(() => {
 			this.timer = new Date()
 		}, 30000)
@@ -187,7 +239,9 @@ export default {
 					continue
 				}
 				if (element) {
-					this.callbacks[app](element[0])
+					this.callbacks[app](element[0], {
+						widget: this.panels[app],
+					})
 					Vue.set(this.panels[app], 'mounted', true)
 				} else {
 					console.error('Failed to register panel in the frontend as no backend data was provided for ' + app)
@@ -224,21 +278,60 @@ export default {
 				this.firstRun = false
 			}, 1000)
 		},
+		updateBackground(data) {
+			this.background = data.type === 'custom' || data.type === 'default' ? data.type : data.value
+			this.version = data.version
+			this.updateGlobalStyles()
+		},
+		updateGlobalStyles() {
+			document.body.setAttribute('data-dashboard-background', this.background)
+			if (window.OCA.Theming.inverted) {
+				document.body.classList.add('dashboard--inverted')
+			}
+
+			const shippedBackgroundTheme = shippedBackgroundList[this.background] ? shippedBackgroundList[this.background].theming : 'light'
+			if (shippedBackgroundTheme === 'dark') {
+				document.body.classList.add('dashboard--dark')
+			} else {
+				document.body.classList.remove('dashboard--dark')
+			}
+		},
 	},
 }
 </script>
 
+<style lang="scss">
+
+</style>
+
 <style lang="scss" scoped>
 	#app-dashboard {
 		width: 100%;
-		margin-bottom: 100px;
-	}
+		background-size: cover;
+		background-position: center center;
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+		background-color: var(--color-primary);
+		--color-background-translucent: rgba(255, 255, 255, 0.8);
+		--background-blur: blur(10px);
 
-	h2 {
-		text-align: center;
-		font-size: 32px;
-		line-height: 130%;
-		padding: 80px 16px 0px;
+		#body-user.theme--dark & {
+			background-color: var(--color-main-background);
+			--color-background-translucent: rgba(24, 24, 24, 0.8);
+		}
+
+		#body-user.theme--highcontrast & {
+			background-color: var(--color-main-background);
+			--color-background-translucent: var(--color-main-background);
+		}
+
+		> h2 {
+			color: var(--color-primary-text);
+			text-align: center;
+			font-size: 32px;
+			line-height: 130%;
+			padding: 120px 16px 0px;
+		}
 	}
 
 	.panels {
@@ -256,9 +349,13 @@ export default {
 		width: 320px;
 		max-width: 100%;
 		margin: 16px;
-		background-color: var(--color-main-background-translucent);
+		background-color: var(--color-background-translucent);
+		backdrop-filter: var(--background-blur);
 		border-radius: var(--border-radius-large);
-		border: 2px solid var(--color-border);
+
+		#body-user.theme--highcontrast & {
+			border: 2px solid var(--color-border);
+		}
 
 		&.sortable-ghost {
 			 opacity: 0.1;
@@ -269,11 +366,6 @@ export default {
 			z-index: 1;
 			top: 50px;
 			padding: 16px;
-			// TO DO: use variables here
-			background: linear-gradient(170deg, rgba(0, 130,201, 0.2) 0%, rgba(255,255,255,.1) 50%, rgba(255,255,255,0) 100%);
-			border-top-left-radius: calc(var(--border-radius-large) - 2px);
-			border-top-right-radius: calc(var(--border-radius-large) - 2px);
-			backdrop-filter: blur(4px);
 			cursor: grab;
 
 			&, ::v-deep * {
@@ -293,15 +385,20 @@ export default {
 				flex-grow: 1;
 			}
 
-			h3 {
+			> h2 {
 				display: block;
 				flex-grow: 1;
 				margin: 0;
 				font-size: 20px;
+				line-height: 24px;
 				font-weight: bold;
 				background-size: 32px;
 				background-position: 14px 12px;
 				padding: 16px 8px 16px 60px;
+				height: 56px;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				cursor: grab;
 			}
 		}
@@ -309,52 +406,123 @@ export default {
 		& > .panel--content {
 			margin: 0 16px 16px 16px;
 			height: 420px;
-			overflow: auto;
+			// We specifically do not want scrollbars inside widgets
+			overflow: hidden;
+		}
+
+		// No need to extend height of widgets if only one column is shown
+		@media only screen and (max-width: 709px) {
+			& > .panel--content {
+				height: auto;
+			}
+		}
+	}
+
+	.footer {
+		text-align: center;
+		transition: bottom var(--animation-slow) ease-in-out;
+		bottom: 0;
+		padding: 44px 0;
+
+		&.firstrun {
+			position: sticky;
+			bottom: 10px;
 		}
 	}
 
 	.edit-panels {
-		z-index: 99;
-		position: fixed;
-		bottom: 20px;
-		right: 20px;
-		padding: 10px 15px 10px 35px;
-		background-position: 10px center;
-		opacity: .7;
-		background-color: var(--color-main-background);
+		display: inline-block;
+		margin:auto;
+		background-position: 16px center;
+		padding: 12px 16px;
+		padding-left: 36px;
 		border-radius: var(--border-radius-pill);
-		transition: right var(--animation-slow) ease-in-out;
+		max-width: 200px;
+		opacity: 1;
+		text-align: center;
+	}
 
-		&:hover {
-			opacity: 1;
+	.edit-panels,
+	.statuses ::v-deep .action-item > button,
+	.statuses ::v-deep .action-item.action-item--open .action-item__menutoggle {
+		background-color: var(--color-background-translucent);
+		backdrop-filter: var(--background-blur);
+
+		&:hover,
+		&:focus,
+		&:active {
 			background-color: var(--color-background-hover);
-		}
-
-		&.firstrun {
-			right: 50%;
-			transform: translateX(50%);
-			max-width: 200px;
-			box-shadow: 0px 0px 3px var(--color-box-shadow);
-			opacity: 1;
-			text-align: center;
 		}
 	}
 
 	.modal__content {
-		width: 30vw;
-		margin: 20px;
+		padding: 32px 16px;
+		max-height: 70vh;
+		text-align: center;
+		overflow: auto;
+
 		ol {
 			display: flex;
-			flex-direction: column;
+			flex-direction: row;
+			justify-content: center;
 			list-style-type: none;
+			padding-bottom: 16px;
 		}
-		li label {
-			padding: 10px;
-			display: block;
-			list-style-type: none;
-			background-size: 16px;
-			background-position: left center;
-			padding-left: 26px;
+		li {
+			label {
+				display: block;
+				padding: 48px 8px 16px 8px;
+				margin: 8px;
+				width: 160px;
+				background-color: var(--color-background-hover);
+				border: 2px solid var(--color-main-background);
+				border-radius: var(--border-radius-large);
+				background-size: 24px;
+				background-position: center 16px;
+				text-align: center;
+
+				&:hover {
+					border-color: var(--color-primary);
+				}
+			}
+
+			input:focus + label {
+				border-color: var(--color-primary);
+			}
+		}
+
+		h3 {
+			font-weight: bold;
+
+			&:not(:first-of-type) {
+				margin-top: 64px;
+			}
+		}
+
+		// Adjust design of 'Get more widgets' button
+		.button {
+			display: inline-block;
+			padding: 12px 24px;
+			margin: 0;
+		}
+
+		p {
+			max-width: 650px;
+			margin: 0 auto;
+
+			a:hover,
+			a:focus {
+				border-bottom: 2px solid var(--color-border);
+			}
+		}
+
+		.credits--end {
+			padding-bottom: 32px;
+			color: var(--color-text-maxcontrast);
+
+			a {
+				color: var(--color-text-maxcontrast);
+			}
 		}
 	}
 
@@ -366,10 +534,11 @@ export default {
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
-		margin-bottom: 40px;
+		flex-wrap: wrap;
+		margin-bottom: 36px;
 
 		& > div {
-			max-width: 200px;
+			margin: 8px;
 		}
 	}
 

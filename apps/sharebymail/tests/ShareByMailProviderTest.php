@@ -30,11 +30,11 @@
 
 namespace OCA\ShareByMail\Tests;
 
-use OC\CapabilitiesManager;
 use OC\Mail\Message;
 use OCA\ShareByMail\Settings\SettingsManager;
 use OCA\ShareByMail\ShareByMailProvider;
 use OCP\Defaults;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use OCP\IDBConnection;
@@ -46,6 +46,7 @@ use OCP\IUserManager;
 use OCP\Mail\IEMailTemplate;
 use OCP\Mail\IMailer;
 use OCP\Mail\IMessage;
+use OCP\Security\Events\GenerateSecurePasswordEvent;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Share\IManager;
@@ -66,44 +67,44 @@ class ShareByMailProviderTest extends TestCase {
 	/** @var  IManager */
 	private $shareManager;
 
-	/** @var  IL10N | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IL10N | \PHPUnit\Framework\MockObject\MockObject */
 	private $l;
 
-	/** @var  ILogger | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  ILogger | \PHPUnit\Framework\MockObject\MockObject */
 	private $logger;
 
-	/** @var  IRootFolder | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IRootFolder | \PHPUnit\Framework\MockObject\MockObject */
 	private $rootFolder;
 
-	/** @var  IUserManager | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IUserManager | \PHPUnit\Framework\MockObject\MockObject */
 	private $userManager;
 
-	/** @var  ISecureRandom | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  ISecureRandom | \PHPUnit\Framework\MockObject\MockObject */
 	private $secureRandom;
 
-	/** @var  IMailer | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IMailer | \PHPUnit\Framework\MockObject\MockObject */
 	private $mailer;
 
-	/** @var  IURLGenerator | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IURLGenerator | \PHPUnit\Framework\MockObject\MockObject */
 	private $urlGenerator;
 
-	/** @var  IShare | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IShare | \PHPUnit\Framework\MockObject\MockObject */
 	private $share;
 
-	/** @var  \OCP\Activity\IManager | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  \OCP\Activity\IManager | \PHPUnit\Framework\MockObject\MockObject */
 	private $activityManager;
 
-	/** @var  SettingsManager | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  SettingsManager | \PHPUnit\Framework\MockObject\MockObject */
 	private $settingsManager;
 
-	/** @var Defaults|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var Defaults|\PHPUnit\Framework\MockObject\MockObject */
 	private $defaults;
 
-	/** @var  IHasher | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var  IHasher | \PHPUnit\Framework\MockObject\MockObject */
 	private $hasher;
 
-	/** @var  CapabilitiesManager | \PHPUnit_Framework_MockObject_MockObject */
-	private $capabilitiesManager;
+	/** @var IEventDispatcher */
+	private $eventDispatcher;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -127,7 +128,7 @@ class ShareByMailProviderTest extends TestCase {
 		$this->settingsManager = $this->getMockBuilder(SettingsManager::class)->disableOriginalConstructor()->getMock();
 		$this->defaults = $this->createMock(Defaults::class);
 		$this->hasher = $this->getMockBuilder(IHasher::class)->getMock();
-		$this->capabilitiesManager = $this->getMockBuilder(CapabilitiesManager::class)->disableOriginalConstructor()->getMock();
+		$this->eventDispatcher = $this->getMockBuilder(IEventDispatcher::class)->getMock();
 
 		$this->userManager->expects($this->any())->method('userExists')->willReturn(true);
 	}
@@ -136,7 +137,7 @@ class ShareByMailProviderTest extends TestCase {
 	 * get instance of Mocked ShareByMailProvider
 	 *
 	 * @param array $mockedMethods internal methods which should be mocked
-	 * @return \PHPUnit_Framework_MockObject_MockObject | ShareByMailProvider
+	 * @return \PHPUnit\Framework\MockObject\MockObject | ShareByMailProvider
 	 */
 	private function getInstance(array $mockedMethods = []) {
 		$instance = $this->getMockBuilder('OCA\ShareByMail\ShareByMailProvider')
@@ -154,7 +155,7 @@ class ShareByMailProviderTest extends TestCase {
 					$this->settingsManager,
 					$this->defaults,
 					$this->hasher,
-					$this->capabilitiesManager
+					$this->eventDispatcher
 				]
 			);
 
@@ -176,7 +177,7 @@ class ShareByMailProviderTest extends TestCase {
 			$this->settingsManager,
 			$this->defaults,
 			$this->hasher,
-			$this->capabilitiesManager
+			$this->eventDispatcher
 		);
 	}
 
@@ -294,7 +295,15 @@ class ShareByMailProviderTest extends TestCase {
 		$node = $this->getMockBuilder(File::class)->getMock();
 		$node->expects($this->any())->method('getName')->willReturn('filename');
 
-		$instance = $this->getInstance(['getSharedWith', 'createMailShare', 'getRawShare', 'createShareObject', 'createShareActivity', 'autoGeneratePassword', 'createPasswordSendActivity']);
+		$this->secureRandom->expects($this->once())
+			->method('generate')
+			->with(8, ISecureRandom::CHAR_LOWER . ISecureRandom::CHAR_UPPER . ISecureRandom::CHAR_DIGITS)
+			->willReturn('autogeneratedPassword');
+		$this->eventDispatcher->expects($this->once())
+			->method('dispatchTyped')
+			->with(new GenerateSecurePasswordEvent());
+
+		$instance = $this->getInstance(['getSharedWith', 'createMailShare', 'getRawShare', 'createShareObject', 'createShareActivity', 'createPasswordSendActivity']);
 
 		$instance->expects($this->once())->method('getSharedWith')->willReturn([]);
 		$instance->expects($this->once())->method('createMailShare')->with($share)->willReturn(42);
@@ -310,7 +319,6 @@ class ShareByMailProviderTest extends TestCase {
 		// The autogenerated password should be mailed to the receiver of the share.
 		$this->settingsManager->expects($this->any())->method('enforcePasswordProtection')->willReturn(true);
 		$this->settingsManager->expects($this->any())->method('sendPasswordByMail')->willReturn(true);
-		$instance->expects($this->once())->method('autoGeneratePassword')->with($share)->willReturn('autogeneratedPassword');
 
 		$message = $this->createMock(IMessage::class);
 		$message->expects($this->once())->method('setTo')->with(['receiver@example.com']);

@@ -42,7 +42,7 @@
  *
  */
 
-/** @var $application Symfony\Component\Console\Application */
+/** @var Symfony\Component\Console\Application $application */
 $application->add(new \Stecman\Component\Symfony\Console\BashCompletion\CompletionCommand());
 $application->add(new OC\Core\Command\Status);
 $application->add(new OC\Core\Command\Check(\OC::$server->getSystemConfig()));
@@ -139,6 +139,14 @@ if (\OC::$server->getConfig()->getSystemValue('installed', false)) {
 		)
 	);
 	$application->add(new OC\Core\Command\Encryption\ShowKeyStorageRoot($util));
+	$application->add(new OC\Core\Command\Encryption\MigrateKeyStorage(
+			$view,
+			\OC::$server->getUserManager(),
+			\OC::$server->getConfig(),
+			$util,
+			\OC::$server->getCrypto()
+		)
+	);
 
 	$application->add(new OC\Core\Command\Maintenance\DataFingerprint(\OC::$server->getConfig(), new \OC\AppFramework\Utility\TimeFactory()));
 	$application->add(new OC\Core\Command\Maintenance\Mimetype\UpdateDB(\OC::$server->getMimeTypeDetector(), \OC::$server->getMimeTypeLoader()));
@@ -162,7 +170,7 @@ if (\OC::$server->getConfig()->getSystemValue('installed', false)) {
 	$application->add(new OC\Core\Command\User\Disable(\OC::$server->getUserManager()));
 	$application->add(new OC\Core\Command\User\Enable(\OC::$server->getUserManager()));
 	$application->add(new OC\Core\Command\User\LastSeen(\OC::$server->getUserManager()));
-	$application->add(new OC\Core\Command\User\Report(\OC::$server->getUserManager()));
+	$application->add(\OC::$server->get(\OC\Core\Command\User\Report::class));
 	$application->add(new OC\Core\Command\User\ResetPassword(\OC::$server->getUserManager()));
 	$application->add(new OC\Core\Command\User\Setting(\OC::$server->getUserManager(), \OC::$server->getConfig(), \OC::$server->getDatabaseConnection()));
 	$application->add(new OC\Core\Command\User\ListCommand(\OC::$server->getUserManager(), \OC::$server->getGroupManager()));
@@ -179,5 +187,5 @@ if (\OC::$server->getConfig()->getSystemValue('installed', false)) {
 	$application->add(new OC\Core\Command\Security\RemoveCertificate(\OC::$server->getCertificateManager(null)));
 	$application->add(new OC\Core\Command\Security\ResetBruteforceAttempts(\OC::$server->getBruteForceThrottler()));
 } else {
-	$application->add(new OC\Core\Command\Maintenance\Install(\OC::$server->getSystemConfig()));
+	$application->add(\OC::$server->get(\OC\Core\Command\Maintenance\Install::class));
 }

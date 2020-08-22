@@ -35,6 +35,7 @@
 
 namespace OCA\Settings\Tests\Controller;
 
+use bantu\IniGetWrapper\IniGetWrapper;
 use OC;
 use OC\DB\Connection;
 use OC\IntegrityCheck\Checker;
@@ -65,34 +66,36 @@ use Test\TestCase;
  * @package Tests\Settings\Controller
  */
 class CheckSetupControllerTest extends TestCase {
-	/** @var CheckSetupController | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var CheckSetupController | \PHPUnit\Framework\MockObject\MockObject */
 	private $checkSetupController;
-	/** @var IRequest | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var IRequest | \PHPUnit\Framework\MockObject\MockObject */
 	private $request;
-	/** @var IConfig | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var IConfig | \PHPUnit\Framework\MockObject\MockObject */
 	private $config;
-	/** @var IClientService | \PHPUnit_Framework_MockObject_MockObject*/
+	/** @var IClientService | \PHPUnit\Framework\MockObject\MockObject*/
 	private $clientService;
-	/** @var IURLGenerator | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var IURLGenerator | \PHPUnit\Framework\MockObject\MockObject */
 	private $urlGenerator;
-	/** @var IL10N | \PHPUnit_Framework_MockObject_MockObject */
+	/** @var IL10N | \PHPUnit\Framework\MockObject\MockObject */
 	private $l10n;
 	/** @var ILogger */
 	private $logger;
-	/** @var Checker|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var Checker|\PHPUnit\Framework\MockObject\MockObject */
 	private $checker;
-	/** @var EventDispatcherInterface|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject */
 	private $dispatcher;
-	/** @var Connection|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var Connection|\PHPUnit\Framework\MockObject\MockObject */
 	private $db;
-	/** @var ILockingProvider|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var ILockingProvider|\PHPUnit\Framework\MockObject\MockObject */
 	private $lockingProvider;
-	/** @var IDateTimeFormatter|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IDateTimeFormatter|\PHPUnit\Framework\MockObject\MockObject */
 	private $dateTimeFormatter;
 	/** @var MemoryInfo|MockObject */
 	private $memoryInfo;
-	/** @var SecureRandom|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var SecureRandom|\PHPUnit\Framework\MockObject\MockObject */
 	private $secureRandom;
+	/** @var IniGetWrapper|\PHPUnit\Framework\MockObject\MockObject */
+	private $iniGetWrapper;
 
 	/**
 	 * Holds a list of directories created during tests.
@@ -132,6 +135,7 @@ class CheckSetupControllerTest extends TestCase {
 			->setMethods(['isMemoryLimitSufficient',])
 			->getMock();
 		$this->secureRandom = $this->getMockBuilder(SecureRandom::class)->getMock();
+		$this->iniGetWrapper = $this->getMockBuilder(IniGetWrapper::class)->getMock();
 		$this->checkSetupController = $this->getMockBuilder(CheckSetupController::class)
 			->setConstructorArgs([
 				'settings',
@@ -148,6 +152,7 @@ class CheckSetupControllerTest extends TestCase {
 				$this->dateTimeFormatter,
 				$this->memoryInfo,
 				$this->secureRandom,
+				$this->iniGetWrapper,
 			])
 			->setMethods([
 				'isReadOnlyConfig',
@@ -593,6 +598,9 @@ class CheckSetupControllerTest extends TestCase {
 				'isMysqlUsedWithoutUTF8MB4' => false,
 				'isEnoughTempSpaceAvailableIfS3PrimaryStorageIsUsed' => true,
 				'reverseProxyGeneratedURL' => 'https://server/index.php',
+				'OCA\Settings\SetupChecks\PhpDefaultCharset' => ['pass' => true, 'description' => 'PHP configuration option default_charset should be UTF-8', 'severity' => 'warning'],
+				'OCA\Settings\SetupChecks\PhpOutputBuffering' => ['pass' => true, 'description' => 'PHP configuration option output_buffering must be disabled', 'severity' => 'error'],
+				'OCA\Settings\SetupChecks\LegacySSEKeyFormat' => ['pass' => true, 'description' => 'The old server-side-encryption format is enabled. We recommend disabling this.', 'severity' => 'warning', 'linkToDocumentation' => ''],
 			]
 		);
 		$this->assertEquals($expected, $this->checkSetupController->check());
@@ -615,6 +623,7 @@ class CheckSetupControllerTest extends TestCase {
 				$this->dateTimeFormatter,
 				$this->memoryInfo,
 				$this->secureRandom,
+				$this->iniGetWrapper,
 			])
 			->setMethods(null)->getMock();
 
@@ -648,6 +657,7 @@ class CheckSetupControllerTest extends TestCase {
 				$this->dateTimeFormatter,
 				$this->memoryInfo,
 				$this->secureRandom,
+				$this->iniGetWrapper,
 			])
 			->setMethods(null)->getMock();
 
@@ -1415,7 +1425,8 @@ Array
 				$this->lockingProvider,
 				$this->dateTimeFormatter,
 				$this->memoryInfo,
-				$this->secureRandom
+				$this->secureRandom,
+				$this->iniGetWrapper
 			);
 
 		$this->assertSame($expected, $this->invokePrivate($checkSetupController, 'isMysqlUsedWithoutUTF8MB4'));
@@ -1463,7 +1474,8 @@ Array
 			$this->lockingProvider,
 			$this->dateTimeFormatter,
 			$this->memoryInfo,
-			$this->secureRandom
+			$this->secureRandom,
+			$this->iniGetWrapper
 		);
 
 		$this->assertSame($expected, $this->invokePrivate($checkSetupController, 'isEnoughTempSpaceAvailableIfS3PrimaryStorageIsUsed'));

@@ -24,6 +24,7 @@
 namespace Test\Activity;
 
 use OCP\IConfig;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -35,13 +36,13 @@ class ManagerTest extends TestCase {
 	/** @var \OC\Activity\Manager */
 	private $activityManager;
 
-	/** @var IRequest|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IRequest|\PHPUnit\Framework\MockObject\MockObject */
 	protected $request;
-	/** @var IUserSession|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IUserSession|\PHPUnit\Framework\MockObject\MockObject */
 	protected $session;
-	/** @var IConfig|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IConfig|\PHPUnit\Framework\MockObject\MockObject */
 	protected $config;
-	/** @var IValidator|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IValidator|\PHPUnit\Framework\MockObject\MockObject */
 	protected $validator;
 
 	protected function setUp(): void {
@@ -56,7 +57,8 @@ class ManagerTest extends TestCase {
 			$this->request,
 			$this->session,
 			$this->config,
-			$this->validator
+			$this->validator,
+			$this->createMock(IL10N::class)
 		);
 
 		$this->assertSame([], self::invokePrivate($this->activityManager, 'getConsumers'));
@@ -75,7 +77,7 @@ class ManagerTest extends TestCase {
 		$this->assertNotEmpty($consumers);
 	}
 
-	
+
 	public function testGetConsumersInvalidConsumer() {
 		$this->expectException(\InvalidArgumentException::class);
 
@@ -164,7 +166,7 @@ class ManagerTest extends TestCase {
 			->willReturn($mockUser);
 	}
 
-	
+
 	public function testPublishExceptionNoApp() {
 		$this->expectException(\BadMethodCallException::class);
 
@@ -172,7 +174,7 @@ class ManagerTest extends TestCase {
 		$this->activityManager->publish($event);
 	}
 
-	
+
 	public function testPublishExceptionNoType() {
 		$this->expectException(\BadMethodCallException::class);
 
@@ -181,7 +183,7 @@ class ManagerTest extends TestCase {
 		$this->activityManager->publish($event);
 	}
 
-	
+
 	public function testPublishExceptionNoAffectedUser() {
 		$this->expectException(\BadMethodCallException::class);
 
@@ -191,7 +193,7 @@ class ManagerTest extends TestCase {
 		$this->activityManager->publish($event);
 	}
 
-	
+
 	public function testPublishExceptionNoSubject() {
 		$this->expectException(\BadMethodCallException::class);
 
