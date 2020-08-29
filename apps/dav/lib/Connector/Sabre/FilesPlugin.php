@@ -50,6 +50,7 @@ use Sabre\DAV\ServerPlugin;
 use Sabre\DAV\Tree;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
+use OC\Files\Stream\HashWrapper;
 
 class FilesPlugin extends ServerPlugin {
 
@@ -276,6 +277,7 @@ class FilesPlugin extends ServerPlugin {
 
 		if ($node instanceof \OCA\DAV\Connector\Sabre\File) {
 			//Add OC-Checksum header
+			/** @var $node File */
 			$checksum = $node->getChecksum();
 			if ($checksum !== null && $checksum !== '') {
 				$response->addHeader('OC-Checksum', $checksum);
@@ -382,6 +384,7 @@ class FilesPlugin extends ServerPlugin {
 
 		if ($node instanceof \OCA\DAV\Connector\Sabre\File) {
 			$propFind->handle(self::DOWNLOADURL_PROPERTYNAME, function () use ($node) {
+				/** @var $node \OCA\DAV\Connector\Sabre\File */
 				try {
 					$directDownloadUrl = $node->getDirectDownload();
 					if (isset($directDownloadUrl['url'])) {
@@ -398,7 +401,12 @@ class FilesPlugin extends ServerPlugin {
 			$propFind->handle(self::CHECKSUMS_PROPERTYNAME, function () use ($node) {
 				$checksum = $node->getChecksum();
 				if ($checksum === null || $checksum === '') {
-					return null;
+          if($node->getFileInfo()->getMountPoint() instanceof ExternalMountPoint) {
+            return null;
+          }else{
+            $checksum = $this->generateLoclFileChecksum($node);
+          }
+
 				}
 
 				return new ChecksumList($checksum);
@@ -514,5 +522,25 @@ class FilesPlugin extends ServerPlugin {
 				$this->server->httpResponse->setHeader('OC-FileId', $fileId);
 			}
 		}
-	}
+  }
+
+  private function generateLoclFileChecksum(\Sabre\DAV\INode $node): String {
+    $fileStorage = $node->getFileInfo()->getStorage(); 
+    $source = $fileStorage->fopen($node->getFileInfo()->getInternalPath(),'r'); 
+    fseek($source, 0);
+
+    $obtainedHash = null;
+    $callback = function($hash) use (&$obtainedHash) {
+        $obtainedHash = $hash;
+    };
+
+    $stream = HashWrapper::wrap($source, "sha1", $callback);
+
+    while(feof($stream) === false) {
+        fread($stream, 200);
+    }
+    fclose($stream);
+    return $obtainedHash;
+  }
+
 }
