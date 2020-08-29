@@ -51,6 +51,7 @@ use Sabre\DAV\Tree;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
 use OC\Files\Stream\HashWrapper;
+use OCA\Files_External\Config\ExternalMountPoint;
 
 class FilesPlugin extends ServerPlugin {
 
@@ -384,7 +385,6 @@ class FilesPlugin extends ServerPlugin {
 
 		if ($node instanceof \OCA\DAV\Connector\Sabre\File) {
 			$propFind->handle(self::DOWNLOADURL_PROPERTYNAME, function () use ($node) {
-				/** @var $node \OCA\DAV\Connector\Sabre\File */
 				try {
 					$directDownloadUrl = $node->getDirectDownload();
 					if (isset($directDownloadUrl['url'])) {
@@ -401,10 +401,10 @@ class FilesPlugin extends ServerPlugin {
 			$propFind->handle(self::CHECKSUMS_PROPERTYNAME, function () use ($node) {
 				$checksum = $node->getChecksum();
 				if ($checksum === null || $checksum === '') {
-          if($node->getFileInfo()->getMountPoint() instanceof ExternalMountPoint) {
+          if ($node->getFileInfo()->getMountPoint() instanceof ExternalMountPoint) {
             return null;
-          }else{
-            $checksum = $this->generateLoclFileChecksum($node);
+          } else {
+            $checksum = $this->generateLocalFileChecksum($node);
           }
 
 				}
@@ -524,12 +524,12 @@ class FilesPlugin extends ServerPlugin {
 		}
   }
 
-  private function generateLoclFileChecksum(\Sabre\DAV\INode $node): String {
+  private function generateLocalFileChecksum(\Sabre\DAV\INode $node): string {
     $fileStorage = $node->getFileInfo()->getStorage(); 
     $source = $fileStorage->fopen($node->getFileInfo()->getInternalPath(),'r'); 
     fseek($source, 0);
 
-    $obtainedHash = null;
+    $obtainedHash = "";
     $callback = function($hash) use (&$obtainedHash) {
         $obtainedHash = $hash;
     };
