@@ -533,7 +533,7 @@ class FilesPlugin extends ServerPlugin {
         $obtainedHash = $hash;
     };
 
-    $stream = HashWrapper::wrap($source, "sha1", $callback);
+    $stream = HashWrapper::wrap($source, "sha256", $callback);
 
     while(feof($stream) === false) {
         fread($stream, 200);
